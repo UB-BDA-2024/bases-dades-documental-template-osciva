@@ -22,10 +22,10 @@ def create_sensor(db: Session, sensor: schemas.SensorCreate, mongo: MongoDBClien
 
 
     # Get MongoDB database and collection
-    database = mongo.getDatabase("data")
-    collection = mongo.getCollection("sensors")
+    database = mongo.getDatabase("sensors")
+    collection = mongo.getCollection("sensorsdata")
     
-        # Prepare GeoJSON location
+    # Prepare GeoJSON location
     location = {
         "type": "Point",
         "coordinates": [sensor.longitude, sensor.latitude]
@@ -33,6 +33,7 @@ def create_sensor(db: Session, sensor: schemas.SensorCreate, mongo: MongoDBClien
 
     # Create document
     doc = {
+        # "id": db_sensor.id, # crear id?
         "name": sensor.name,
         # "longitude": location["coordinates"][0],
         # "latitude": location["coordinates"][1],
@@ -71,8 +72,8 @@ def record_data(db: Session, redis: RedisClient, mongo: MongoDBClient, sensor_id
     if data.velocity is not None:
         redis.set(velocity_key, data.velocity)
 
-    mongo_database = mongo.getDatabase("data")
-    collection = mongo.getCollection("sensors")
+    mongo_database = mongo.getDatabase("sensors")
+    collection = mongo.getCollection("sensorsdata")
 
     # Update sensor data in the database
     db_sensor = db.query(models.Sensor).filter(models.Sensor.id == sensor_id).first()
@@ -84,23 +85,10 @@ def record_data(db: Session, redis: RedisClient, mongo: MongoDBClient, sensor_id
 
     last_seen = redis.get(last_seen_key)
     battery_level = redis.get(battery_level_key)
-    # temperature = None
-    # humidity = None
-    # velocity = None
-
-    # if data.temperature is not None:
-    #     temperature = redis.get(temperature_key)
-    # if data.humidity is not None:
-    #     humidity = redis.get(humidity_key)
-    # if data.velocity is not None:
-    #     velocity = redis.get(velocity_key)
-
 
     return schemas.Sensor(
         id=db_sensor.id,
         name=db_sensor.name,
-        # latitude=documental_sensor["latitude"], # cambiar a [[[]]]
-        # longitude=documental_sensor["longitude"],
         latitude = documental_sensor["location"]["coordinates"][1],
         longitude = documental_sensor["location"]["coordinates"][0],
         joined_at=str(db_sensor.joined_at),
@@ -108,9 +96,6 @@ def record_data(db: Session, redis: RedisClient, mongo: MongoDBClient, sensor_id
         type=documental_sensor["type"],
         mac_address=documental_sensor["mac_address"],
         battery_level=battery_level,
-        # temperature=temperature,
-        # humidity=humidity,
-        # velocity=velocity
         temperature=data.temperature,
         humidity=data.humidity,
         velocity=data.velocity
@@ -138,17 +123,15 @@ def get_data(db: Session, redis: RedisClient, mongo: MongoDBClient, sensor_id: i
     battery_level = redis.get(battery_level_key)
     last_seen = redis.get(last_seen_key)
     
-    mongo_database = mongo.getDatabase("data")
-    collection = mongo.getCollection("sensors")
+    mongo_database = mongo.getDatabase("sensors")
+    collection = mongo.getCollection("sensorsdata")
     documental_sensor = collection.find_one({"name": db_sensor.name})
 
 
-    # Construye y retorna el objeto Sensor con los datos obtenidos
+    
     return schemas.Sensor(
         id=db_sensor.id,
         name=db_sensor.name,
-        # latitude=documental_sensor["latitude"], # cambiar a [[[]]]
-        # longitude=documental_sensor["longitude"],
         latitude = documental_sensor["location"]["coordinates"][1],
         longitude = documental_sensor["location"]["coordinates"][0],
         joined_at=str(db_sensor.joined_at),
@@ -185,10 +168,10 @@ def delete_sensor(db: Session, redis: RedisClient, mongo: MongoDBClient, sensor_
     redis.delete(battery_level_key)
     redis.delete(last_seen_key)
 
-    database = mongo.getDatabase("data")
+    database = mongo.getDatabase("sensors")
 
     # Elimina los registros asociados en MongoDB
-    collection = mongo.getCollection("sensors")
+    collection = mongo.getCollection("sensorsdata")
     collection.delete_one({"name": db_sensor.name})
 
 def get_sensors_near(db: Session, redis: RedisClient, mongo: MongoDBClient, latitude: float, longitude: float, radius: float) -> List[schemas.Sensor]:
@@ -221,8 +204,8 @@ def get_sensors_near(db: Session, redis: RedisClient, mongo: MongoDBClient, lati
 
     # Itera sobre los sensores cercanos
     for sensor_data in nearby_sensors:
-        nom_sensor = sensor_data["name"]
-        sensor = get_sensor_by_name(db, nom_sensor)
+        nom_sensor = sensor_data["name"] # necessari ja que no puc pillar la id
+        sensor = get_sensor_by_name(db, nom_sensor) # necessari ja que no puc pillar la id
         sensor_datas = get_data(db=db, redis=redis, mongo=mongo, sensor_id=sensor.id)  
         nearby_sensor_data.append(sensor_datas)
 
